@@ -1,0 +1,883 @@
+swagger: '2.0'
+info:
+  version: '2.0.0'
+  title: 'Walutomat (Valuto) API'
+  description: 'Walutomat (Valuto) API'
+externalDocs:
+  description: Find out more about Valuto
+  url: http://walutomat.pl/en
+
+
+schemes:
+ - https
+
+securityDefinitions:
+  api_key:
+    type: apiKey
+    name: api_key
+    in: header
+
+
+######## DOC CHAPTERS ############
+tags:
+- name: account
+  description: Account balance and history
+
+- name: payout
+  description: Payout from wallet
+
+- name: direct_fx
+  description: Exchange currency with Currency One
+
+- name: market_fx
+  description: Endpoints dedicated to P2P urrency exchange at Walutomat stock exchange (managing orders and trace order execution)
+
+
+######## ENDPOINTS ############
+paths:
+  /account/balances:
+    get:
+      tags:
+      - account
+      summary: Returns wallet balance
+      operationId: getBalances
+      produces:
+      - application/json
+      parameters: []
+      responses:
+        200:
+          description: Returns wallet balances (if success set to false, examine errors object)
+          schema:
+            $ref: '#/definitions/BalanceResponse'
+      security:
+      - api_key: []
+
+  /account/history:
+    get:
+      tags:
+      - account
+      summary: Returns wallet history - operations recorded on the wallet 
+      operationId: getHistory
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: dateFrom
+        type: string
+        description: Date in format YYYY-MM-DD, if provided just operations recorded in this date and newer are returned
+        required: false
+      - in: query
+        name: dateTo
+        type: string
+        description: Date in format YYYY-MM-DD, if provided just operations recorded in this date and older are returned
+        required: false
+      - in: query
+        name: currency
+        type: string
+        description: Currency code in ISO format, if provided just operations in given currency are returned, otherwise ooperations in all currencies are returned
+        required: false
+        enum:
+        - EUR
+        - PLN
+      - in: query
+        name: operationType
+        type: string
+        description: Could be used to limit results to selected operatino type like payin, payout, currency exchange or commission, if not provided all operations of any kind on multicurrency wallet are returned
+        required: false
+        enum:
+        - PAYIN
+        - PAYOUT
+        - COMMISSION
+        - DIRECT_FX
+        - MARKET_FX
+        - OTHER
+      - in: query
+        name: offset
+        type: number
+        default: 0
+        description: Number of first results to ommit in response. Used to obtain further page of results (due to possible significant number of operations satifying criteria from request parameters, paging is used)
+        required: false
+      - in: query
+        name: volume
+        type: number
+        default: 100
+        description: Maximum number of account operations fetched in one response. If actual number of operations satisfying request criteria exceeds volume number, response is trimmed to this number and next request with appropriate offset parameter shall be used to read next portion (page) of operations. One can learn actual number of all operations satisfying request criteria from count attribute in response json.
+        required: false      
+      responses:
+        200:
+          description: Returns list of operations on Walutomat multicurrency account according to selected filters. When no filters seelcted all operations from last 30 days are taken into account.
+          schema:
+            $ref: '#/definitions/HistoryResponse'
+      security:
+      - api_key: []
+
+  /direct_fx/rates:
+    get:
+      tags:
+      - direct_fx
+      summary: Returns current exchange rate
+      description: Returns current exchange rate (buy and sell) offered by Currency One for specified currency pair
+      operationId: getFxRate
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: currencyPair
+        type: string
+        description: Currency pair, i.e. base currency separated from counter currency with slash character, example EUR/PLN
+        required: true
+      - in: query
+        name: ts
+        type: string
+        description: An identifier of the rate, in ISO 8601 format, example "2018-03-27T09:58:06.945Z", defaults to current time
+        required: false
+      responses:
+        200:
+          description: Returns current exchange rate (if success set to false, examine errors object)
+          schema:
+            $ref: '#/definitions/FxRateResponse'
+
+  /market_fx/best_offers:
+    get:
+      tags:
+      - market_fx
+      summary: Returns 10 best bids and asks on currency pair in question
+      operationId: getBestOffers
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: currencyPair
+        type: string
+        description: Currency pair, i.e. base currency separated from counter currency with slash character, example EUR/PLN
+        required: true
+      responses:
+        200:
+          description: Returns best offers available on market (10 bids and asks), if success set to false, examine errors object
+          schema:
+            $ref: '#/definitions/BestOffersResponse'
+
+  /market_fx/orders:
+    get:
+      tags:
+      - market_fx
+      summary: Returns given order details including execution progress
+      operationId: getOrder
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: orderId
+        type: string
+        description: Order identifier returned during order creation, example "22dba34d-d266-4084-9f3e-1b2c7c78c172"
+        required: true
+      responses:
+        200:
+          description: Returns matching orders details, if success set to false, examine errors object
+          schema:
+            $ref: '#/definitions/OrderResponse'
+      security:
+      - api_key: []
+
+    post:
+      tags:
+      - market_fx
+      summary: Submits new FX order to market
+      description: Platform allows to submit buy or sell order with price limit. Orders shall concern one of currency pairs listed on Walutomat market.
+      operationId: newOrder
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: dryRun
+        type: boolean
+        description: If set to true, dry run mode is on. In this mode order is not placed on market, only request correctness and possiblity to place order is checked
+        default: false
+      - in: query
+        name: submitId
+        type: string
+        description: Unique exchange identifier assigned by sender (GUID or UUID), required when not dry run mode, must not be used when dryRun=true, example "93a68f4d-ce40-40be-adac-3bb4d4b5e392"
+      - in: query
+        name: currencyPair
+        type: string
+        description: Currency pair, i.e. base currency separated from counter currency with slash character, example "EUR/PLN". One of currency pairs listed on Walutomat market
+        required: true
+      - in: query
+        name: buySell
+        type: string
+        description: BUY or SELL order type
+        enum:
+        - BUY
+        - SELL
+        required: true
+      - in: query
+        name: volume
+        type: string
+        description: Order volume, order limit (maximum amount of currency to be bought/sold depending on buySell attribute)
+        required: true
+      - in: query
+        name: volumeCurrency
+        type: string
+        description: Currency of provided volume value. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+        required: true
+      - in: query
+        name: limitPrice
+        type: string
+        description: Maximum rate to buy currency at in case of BUY order, minimum rate to sell currency at in case of SELL order
+        required: true
+      responses:
+        200:
+          description: Returns whether operation succeeded and identifier of created order or error - if success set to false, examine errors object
+          schema:
+            $ref: '#/definitions/NewOrderResponse'
+      security:
+      - api_key: []
+
+  /market_fx/orders/findAllMyActive:
+    get:
+      tags:
+      - market_fx
+      summary: Returns all active orders on market taking part in matching (not closed or canceled) put on market by requestor
+      operationId: getMyActiveOrders
+      produces:
+      - application/json
+      responses:
+        200:
+          description: Returns active orders details, if success set to false, examine errors object
+          schema:
+            $ref: '#/definitions/OrdersResponse'
+      security:
+      - api_key: []
+
+  /market_fx/orders/close:
+    post:
+      tags:
+      - market_fx
+      summary: Withdraw order from market
+      description: If given order is still active on market, it will be eventually withdrawn even though it is not fully executed. Please note that order might be partially executed before close request has arrived.
+      operationId: cancelOrder
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: orderId
+        type: string
+        description: Order identifier returned during order creation, example "22dba34d-d266-4084-9f3e-1b2c7c78c172"
+        required: true
+      responses:
+        200:
+          description: Returns operation result and closed order details. If success set to false, examine errors object. Successfully closed order has status CLOSED, completion is 0 when order was closed before any exchange was performed, 100 if order was ully executed before clsoe request arrived or between 0 and 100 when order was partially executed before it was withdrew from market upon close request.
+          schema:
+            $ref: '#/definitions/OrderResponse'
+      security:
+      - api_key: []
+
+  /direct_fx/exchanges:
+    post:
+      tags:
+      - direct_fx
+      summary: Requests currency exchange
+      description: Requests currency exchange at rate provided by Currency One
+      operationId: newExchange
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: dryRun
+        type: boolean
+        description: When true, dry run mode is on. In this mode currency exchange is not executed, only request correctness and possiblity to execute given exchange is checked instead
+        default: false
+      - in: query
+        name: submitId
+        type: string
+        description: Any unique exchange identifier assigned by sender, required when not dry run mode, must not be used when dryRun=true, example "93a68f4d-ce40-40be-adac-3bb4d4b5e392"
+      - in: query
+        name: currencyPair
+        type: string
+        description: Currency pair, i.e. base currency separated from counter currency with slash character, example "EUR/PLN"
+        required: true
+      - in: query
+        name: buySell
+        type: string
+        description: BUY or SELL operation
+        enum:
+        - BUY
+        - SELL
+        required: true
+      - in: query
+        name: volume
+        type: string
+        description: Exchange volume, example "999.00"
+        required: true
+      - in: query
+        name: volumeCurrency
+        type: string
+        description: Currency of provided volume value. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+        required: true
+      - in: query
+        name: ts
+        type: string
+        description: An identifier of the rate received from Exchange rates response, in ISO 8601 format, example "2018-03-27T09:58:06.945Z"
+        required: true
+      responses:
+        200:
+          description: Returns operation result, if operation succeeded details of permed currency exchange are returned, if success set to false, examine errors object.
+          schema:
+            $ref: '#/definitions/ExchangeResponse'
+      security:
+      - api_key: []
+
+  /payouts:
+    post:
+      tags:
+      - payout
+      summary: Requests new payout from wallet
+      description: Requests payout from wallet - either actual or just simulation to learn payout cost and possibility in dry run mode.
+      operationId: newPayout
+      consumes:
+      - application/x-www-form-urlencoded
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: payoutType
+        type: string
+        description: Determines type of payout, e.g. payuot to IBAN account account number, payout to accounts in domestic schemes, payout to email/phone, etc.
+        default: IBAN
+        enum:
+        - IBAN
+      - in: query
+        name: dryRun
+        type: boolean
+        description: When true, dry run mode is on. In this mode payout is not sent to execution, only request correctness, cost and possiblity to execute given payout is checked instead
+        default: false
+      - in: query
+        name: submitId
+        type: string
+        description: Any unique payout identifier assigned by sender, required when not dry run mode, must not be used when dryRun=true, example "93a68f4d-ce40-40be-adac-3bb4d4b5e392"
+      - in: query
+        name: volume
+        type: string
+        description: Payout amount, example "999.00"
+        required: true
+      - in: query
+        name: currency
+        type: string
+        description: ISO currency code. Consult business documentation and agreeement to determine in which currencies payouts are provided to you.
+        enum:
+        - EUR
+        - PLN
+        required: true
+      - in: query
+        name: title
+        type: string
+        description: Payout transfer title, example "payment to invoice number 1/2018"
+      - in: query
+        name: destinationIban
+        type: string
+        description: Destination account number in IBAN format. Country code at the beginning of IBAN number is mandatory, example "PL71967221037685356996377436"
+      - in: query
+        name: recipientName
+        type: string
+        description: Destination account owner, example "Adventure Works Ltd"
+      - in: query
+        name: recipientAddress
+        type: string
+        description: Destination account owner address, example "14 Tottenham Court Road, London, England, W1T 1JY"
+      - in: query
+        name: transferMode
+        type: string
+        description: Advice how to execute your payout request, not all transfer modes are available for each currency, destination country and bank. As to transfer modes available for you and related fees, consult business documentation and agreement.
+        enum:
+          - INTERNAL
+          - ELIXIR
+          - SEPA
+          - TARGET2
+          - SWIFT_SHA_STANDARD
+          - SWIFT_SHA_EXPRESS
+          - SWIFT_OUR_EXPRESS
+        default: SWIFT_SHA_STANDARD
+      - in: query
+        name: signature
+        type: string
+        description: Individual request signature, optional when dryRun set to true (if present in dryRun mode, its corretness will be validated), way of protecting most sensitive requests, hash from request is signed with client private key, refer to documentation how to sign requests
+      responses:
+        200:
+          description: Response indicates whether payout was accepted and associated fees are provided. If success set to false, examine errors object.
+          schema:
+            $ref: '#/definitions/PayoutResponse'
+      security:
+      - api_key: []
+
+
+########## DEFINITIONS #############
+definitions:
+  GenericResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: True when exchange request was valid and succesfully handled, if false investigate errors table for details
+      errors:
+        type: array
+        items:
+          $ref: '#/definitions/ErrorType'
+    required:
+      - success
+
+  ErrorType:
+    type: object
+    properties:
+      key:
+        type: string
+        description: Error key
+        example: INSUFFICIENT_FUNDS
+        enum:
+        - OTHER
+        - INVALID_SYNTAX
+        - NOT_AUTHORIZED
+        - CURRENCY_NOT_SUPPORTED
+        - COUNTRY_NOT_SUPPORTED
+        - INVALID_ACCOUNT_NUMBER
+        - INSUFFICIENT_FUNDS
+        - PAYOUT_LIMIT_EXCEEDED
+      description:
+        type: string
+        description: Descriptive error message with possible references to errorData entries
+        example: Requested payout exceeds current wallet balance {walletBalance}
+      trace:
+        type: string
+        description: When unspecified error occurred, the trace can help to track the problem. You may be asked to deliver received response with trace content to our support team.
+      errorData:
+        type: array
+        items:
+          $ref: '#/definitions/ErrorData'
+    required:
+      - key
+      - description
+      - errorData
+
+  ErrorData:
+    required:
+        - key
+        - value
+    properties:
+      key:
+        type: string
+        description: Error data entry key
+        example: walletBalance
+      value:
+        type: string
+        description: Error data entry value
+        example: 3.14 EUR
+
+  DuplicatableResponse:
+    type: object
+    required:
+      - duplicate
+    properties:
+      duplicate:
+        type: boolean
+        description: True when submitId was used before, in such a case no new operation like exchange or payout is performed. It is safe to repeat request e.g. in cases when response from first attempt was not received or processed
+
+  PageableResponse:
+    type: object
+    required:
+      - count
+    properties:
+      count:
+        type: number
+        description: Total number of items satisfying request parameters. If this number is greater than volume parameter in request (or default 100) then use offset parameter to fetch remaining items.
+        
+  NewOrderResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - $ref: '#/definitions/DuplicatableResponse'
+    - type: object
+      properties:
+        result:
+          type: object
+          properties:
+            orderId:
+              type: string
+              description: Identifier of the order exchange assigned by platform, only when not in dryRun mode (it is generated by server, this is not submitId from request)
+              example: 2607f83b-3a60-4097-912c-72e1cf7a0085
+
+  ExchangeResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - $ref: '#/definitions/DuplicatableResponse'
+    - type: object
+      properties:
+        result:
+          type: object
+          properties:
+            exchangeId:
+              type: string
+              description: Identifier of the exchange, only when not in dryRun mode (it is generated by server id of exchange, this is not submitId from request)
+              example: 2607f83b-3a60-4097-912c-72e1cf7a0085
+
+  PayoutResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - $ref: '#/definitions/DuplicatableResponse'
+    - type: object
+      properties:
+        result:
+          type: object
+          description: Container for payout result
+          properties:
+            payoutId:
+              type: string
+              description: Identifier of the payout, only when not in dryRun mode (it is generated by server id of payout, this is not submitId from request)
+              example: 2b5121cb-2b38-4fd8-be34-0aac4cf96c8d
+            feeAmount:
+              type: string
+              description: Fee/commission amount applicable to given payout
+              example: "3.00"
+            feeCurrency:
+              type: string
+              description: Fee/commission currency (ISO currency code)
+              example: "PLN"
+              enum:
+              - EUR
+              - PLN
+
+  OrderResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - type: object
+      properties:
+        result:
+          $ref: '#/definitions/OrderDetails'
+
+  OrdersResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/definitions/OrderDetails'
+
+  OrderDetails:
+    type: object
+    required:
+      - orderId
+      - submitId
+      - submitTs
+      - updateTs
+      - status
+      - completion
+      - currencyPair
+      - buySell
+      - volume
+      - volumeCurrency
+    properties:
+      orderId:
+        type: string
+        description: Unique order identifier assigned by market operator's system
+        example: "2035e361-e672-457a-9c3c-0e86e5ff54d6"
+      submitId:
+        type: string
+        description: Unique order identifier assigned by client system submitting new order. GUID or UUID highly advised
+        example: "916f1f98-01f6-412a-85e7-2482f1f4c112"
+      submitTs:
+        type: string
+        description: Timestamp of order, as registered during order request acceptance
+        example: "2018-02-02T10:06:01.111Z"
+      updateTs:
+        type: string
+        description: Timestamp of last order update, such as status change or ecution progress update
+        example: "2018-02-02T10:06:01.396Z"
+      status:
+        type: string
+        description: Order status, ACTIVE when still active on market
+        example: "ACTIVE"
+        enum:
+          - ACTIVE
+          - CLOSED
+      completion:
+        type: string
+        description: Percentage of executed order amount to total order volume, 100.00 when fullye executed
+        example: "100.00"
+      currencyPair:
+        type: string
+        description: Currency pair - base currency separated from counter currency with slash character
+        example: EUR/PLN
+      buySell:
+        type: string
+        description: BUY or SELL order
+        enum:
+        - BUY
+        - SELL
+      volume:
+        type: string
+        description: Order volume, order limit (maximum amount of currency to be bought/sold depending on buySell attribute)
+        example: "999.00"
+      volumeCurrency:
+        type: string
+        description: Currency of provided volume value. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+      limitPrice:
+        type: string
+        description: Maximum rate to buy currency at in case of BUY order, minimum rate to sell currency at in case of SELL order
+        example: "4.2321"
+      soldAmount:
+        type: string
+        description: Amount of currency sold so far within this order
+        example: "999.00"
+      soldCurrency:
+        type: string
+        description: Sold currency. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+      boughtAmount:
+        type: string
+        description: Amount of currency bought so far within this order. Commission is not deducted, amount deposited to customer wallet is boughtAmount - commissionAmount
+        example: "999.00"
+      boughtCurrency:
+        type: string
+        description: Bought currency. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+      commissionAmount:
+        type: string
+        description: Commission for fx order execution charged by platform operator so far
+        example: "9.00"
+      commissionCurrency:
+        type: string
+        description: Commission currency. ISO currency code.
+        enum:
+        - EUR
+        - PLN
+      commissionRate:
+        type: string
+        description: Commission rate applicable to this order
+        example: "0.0020"
+
+  FxRateResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - type: object
+      properties:
+        result:
+          type: object
+          required:
+            - ts
+            - currencyPair
+            - buyRate
+            - sellRate
+          properties:
+            ts:
+              type: string
+              description: This is an identifier of the rate, you will reference the rate by this value, this is also timestamp of the currency quote
+              example: "2018-03-27T09:58:06.945Z"
+            currencyPair:
+              type: string
+              description: Currency pair, i.e. base currency separated from counter currency with slash character
+              example: EUR/PLN
+            buyRate:
+              type: string
+              description: This is a rate you can buy currency at, so at this rate Currency One sells
+              example: "4.1234"
+            sellRate:
+              type: string
+              description: This is a rate you can sell  scurrency at, so at this rate Currency One buys
+              example: "4.0987"
+
+  BestOffersResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - type: object
+      properties:
+        result:
+          type: object
+          required:
+            - ts
+            - currencyPair
+            - bids
+            - asks
+          properties:
+            ts:
+              type: string
+              description: This is timestamp identifier of the snapshot with best bids and asks taken from stock exchange
+              example: "2018-03-27T09:58:06.945Z"
+            currencyPair:
+              type: string
+              description: Currency pair, i.e. base currency separated from counter currency with slash character
+              example: EUR/PLN
+            bids:
+              type: array
+              description: List of 10 best bid offers (e.g. in EUR/PLN offers of buying EUR paid in PLN). List could be shorter than 10 in rare situation of less than 10 bids in given currency pair on Walutomat stock exchange
+              items:
+                $ref: '#/definitions/BidAsk'
+            asks:
+              type: array
+              description: List of 10 best ask offers (e.g. in EUR/PLN offers of selling EUR paid in PLN). List could be shorter than 10 in rare situation of less than 10 asks in given currency pair on Walutomat stock exchange
+              items:
+                $ref: '#/definitions/BidAsk'
+
+  BidAsk:
+    required:
+      - price
+      - volume
+      - valueInOppositeCurrency
+    properties:
+      price:
+        type: string
+        description: Price of the offer(s), 4 decimal places precision, e.g. if pair is EUR/PLN price 4.3518  means that 1 EUR is offered for 4.3518 PLN
+        example: 4.3518
+      volume:
+        type: string
+        description: Volume, quantity of offered currency, e.g. if pair is EUR/PLN this value represents quantity of EUR offered
+        example: 962.65
+      valueInOppositeCurrency:
+        type: string
+        description: Offer(s) amount, that is price * volume, e.g. if ir is EUR/PLN this value represents offer value in PLN
+        example: 4189.27
+
+  BalanceResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/definitions/BalanceItem'
+
+  BalanceItem:
+    type: object
+    required:
+      - currency
+      - balanceTotal
+      - balanceAvailable
+      - balanceReserved
+    properties:
+      currency:
+        type: string
+        description: ISO currency code. Consult business documentation and agreeement to determine which currencies are provided to you.
+        enum:
+        - EUR
+        - USD
+        - GBP
+        - PLN
+      balanceTotal:
+        type: string
+        description: Account balance (sum of available and blocked sources)
+        example: "123.00"
+      balanceAvailable:
+        type: string
+        description: Balance of available sources on wallet
+        example: "99.00"
+      balanceReserved:
+        type: string
+        description: Balance of blocked sources on wallet. Common reason are sources blocked to secure order execution on currency stock exchange or sources blocked for ordered and not yet executed money transfer.
+        example: "24.00"
+        
+  HistoryResponse:
+    allOf:
+    - $ref: '#/definitions/GenericResponse'
+    - $ref: '#/definitions/PageableResponse'
+    - type: object
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/definitions/HistoryItem'
+          
+  HistoryItem:
+    type: object
+    required:
+      - ts
+      - type
+      - currency
+      - amount
+      - balanceAfter
+    properties:
+      ts:
+        type: string
+        description: This is timestamp identifier of operation
+        example: "2018-03-27T09:58:06.945Z"
+      transactionId:
+        type: string
+        description: Identifier of Walutomat API transaction that results in account baalnce change. Please note that one transaction may affect multiple wallets more than one time, so this identifier may be identical in more than one wallet history item. E.g. exchange transaction affect at least walletes (buyer and seller) in 2 currencies (bought and sold)
+        example: "2035e361-e672-457a-9c3c-0e86e5ff54d6"
+      submitId:
+        type: string
+        description: Identifier of client request that involves given wallet balance change, assigned by client system submitting new request. Not present when given wallet balance change is not result of client request submitted by Walutomat API.
+        example: "916f1f98-01f6-412a-85e7-2482f1f4c112"
+      operationType:
+        type: string
+        description: Type of operation. Walutomat API distiguishes high level type of operations - payins, payouts from wallet, currency exchanges made in one of two models, commissions and fees, other operations not fitted to any of group mentioned earlier. Each operation type may have subtypes (like card payin, pay-by-link payin, wire transfer payin), which could be learned from operationDescription attribute and details object.
+        enum:
+        - PAYIN
+        - PAYOUT
+        - COMMISSION
+        - DIRECT_FX
+        - MARKET_FX
+        - OTHER
+      operationDescription:
+        type: string
+        description: Operation name
+        example: "Payin with Przelewy24"
+      currency:
+        type: string
+        description: ISO currency code. Consult business documentation and agreeement to determine which currencies are provided to you.
+        enum:
+        - EUR
+        - USD
+        - GBP
+        - PLN
+      operationAmount:
+        type: string
+        description: Amount of currency credited or debited to wallet account in given currency. In case of debit operatinos, negaive sign is used
+        example: "-999.00"
+      balanceAfter:
+        type: string
+        description: Account balance after this operation. Note in same cases wallet accounts may have negative balance (debit)
+        example: "123.00"
+      operationDetails:
+        type: array
+        items:
+          type: object
+          properties:
+            key:
+              type: string
+              description: operation detail entry key
+              example: transferTitle
+            value:
+              type: string
+              description: operation detail entry value
+              example: "Invoice 1/01/2018, from John Smith"
+          
+          
+     
+
+ 
