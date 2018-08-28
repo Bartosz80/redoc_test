@@ -2,6 +2,11 @@ swagger: '2.0'
 info:
   version: '2.0.0'
   title: 'Walutomat API'
+  x-logo:
+    url: "https://scontent-waw1-1.xx.fbcdn.net/v/t1.0-1/c8.0.200.200/p200x200/11018602_10153061095469543_2975910377532241771_n.png?_nc_cat=0&oh=7e9a99a18f94d5fac2585945ffe006af&oe=5BFACE32"
+    backgroundColor: "#FFFFFF"
+    altText: "Walutomat"  
+  
   description: |
     # Overview
 
