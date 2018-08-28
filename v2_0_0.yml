@@ -228,36 +228,30 @@ securityDefinitions:
 
 
 ######## DOC CHAPTERS ############
+x-tagGroups:
+  - name: Endpoint reference
+    tags:
+      - account
+      - payout
+      - direct_fx
+      - market_fx
+
 tags:
 - name: account
   description: Account balance and history
+  x-displayName: Account information
 
 - name: payout
-  description: |
-    Payout from wallet
-    ```sh
-    curl -X GET "https://api.walutomat.pl/2.0.0/direct_fx/rate?currencyPair=EUR%2FPLN" -H  "accept: application/json" -H  "api_key: your_api_key"
-    ```
-
-    > Example response:
-    ```json
-     {
-        "success": true,
-        "errors": [],
-        "result": {
-          "ts": "2018-03-27T09:58:06.945Z",
-          "currencyPair": "EUR/PLN",
-          "buyRate": "4.1234",
-          "sellRate": "4.0987"
-        }
-     }
-    ```    
+  description: Payout from wallet
+  x-displayName: Payouts
 
 - name: direct_fx
   description: Exchange currency with Currency One
+  x-displayName: Direct FX
 
 - name: market_fx
   description: Endpoints dedicated to P2P urrency exchange at Walutomat stock exchange (managing orders and trace order execution)
+  x-displayName: Market (P2P) FX
 
 
 ######## ENDPOINTS ############
