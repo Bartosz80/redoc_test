@@ -145,6 +145,8 @@ info:
     The API uses token-based authentication. You will be provided with a API key which must be included in the header of all requests made to the API that requires authentication.
     Additionally payout requests must be signed with RSA key with key size of 4096 bits.
     All API requests must be made over HTTPS. Any requests made over HTTP will fail.
+    
+    <!-- ReDoc-Inject: <security-definitions> -->
 
     ## Errors
 
