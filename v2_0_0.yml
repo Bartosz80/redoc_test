@@ -1,8 +1,211 @@
 swagger: '2.0'
 info:
   version: '2.0.0'
-  title: 'Walutomat (Valuto) API'
-  description: 'Walutomat (Valuto) API'
+  title: 'Walutomat API'
+  description: |
+    # Overview
+
+    ## Introduction
+
+    The Walutomat API is used to manage Walutomat multicurrency wallet from third party IT systems. 
+    The API is built using RESTful endpoints and standard HTTP verbs.
+    JSON is returned on all our API responses, with a consistent structure for all messages.
+    Each response contains success flag and in case of failure error section contains information necessary to investigate error reason.
+    Authentication to the API is performed via token-based auth (API key). Additionally sensitive operations must be signed with private key.
+    All API requests must be made over HTTPS. Calls made over plain HTTP will fail.
+    All requests must use TLS 1.1 or above.
+
+    ## Getting started
+
+    Follow this simple step-by-step guide to get started using the Walutomat API.
+
+    ### Generate your API key
+
+    You can generate your API key under the API Key section of Walutomat user panel. If you do not have access to Walutomat user panel or you do not have option to generate API key available, please contact Sales.
+
+    ### Upload your public key
+
+    If you want to submit payout from your wallet request via API, you will need to sign it first. In order to achieve this and let us validate and authorize your request, you will need to create a pair of asymmetric keys and send us the public one.
+
+    <aside class="notice">
+    **Note:** You can skip this step if you do not intend to order payouts via API - other API requests authentication and authorization relies on API key only. 
+    </aside>
+
+    1. Generate a pair of RSA keys with key size of 4096 bits, here is example with use of ssh-keygen tool:
+    ```sh
+    ssh-keygen -t rsa -b 4096
+    ```
+    2. Upload public one via API section of Walutomat user panel so that we can validate signature in your future payout requests.
+
+    ### Learn current exchange rate
+
+    ```sh
+    curl -X GET "https://api.walutomat.pl/2.0.0/direct_fx/rate?currencyPair=EUR%2FPLN" -H  "accept: application/json" -H  "api_key: your_api_key"
+    ```
+
+    > Example response:
+    ```json
+     {
+        "success": true,
+        "errors": [],
+        "result": {
+          "ts": "2018-03-27T09:58:06.945Z",
+          "currencyPair": "EUR/PLN",
+          "buyRate": "4.1234",
+          "sellRate": "4.0987"
+        }
+     }
+    ```
+
+    Copy the command, replace `your_api_key` with your api key and run it to learn current exchange rate offered by Currency One. You should see the exchange rate in the response. Note down the `ts` attribute of the exchange rate, you will need it in the next step.
+
+    ### Order currency exchange
+
+    ```sh
+    curl -X POST "https://api.walutomat.pl/2.0.0/direct_fx/exchange?dryRun=false&submitId=93a68f4d-ce40-40be-adac-3bb4d4b5e392&currencyPair=EUR%2FPLN&buySell=BUY&volume=999.00&volumeCurrency=EUR&ts=exchange_rate_ts" -H  "accept: application/json" -H  "api_key: your_api_key"
+    ```
+
+    > Example response:
+    ```json
+      {
+        "success": true,
+        "errors": [],
+        "duplicate": false,
+        "result": {
+          "exchangeId": "2607f83b-3a60-4097-912c-72e1cf7a0085"
+        }
+      }
+      ```
+      
+    Knowing current exchange rate you are now ready to order currency exchange accepting received exchange rate.
+    Copy the command, replace `exchange_rate_ts` with the `ts` from the previous step (as well as `your_api_key`) and run it to order currency exchange.
+
+    <aside class="notice">
+    **Note:** There are two models of currency exchange offered by Currency One via API: direct currency exchange with Currency One (endpoints in `direct_fx` namespace), used in this demonstration, and P2P exchange on Walutomat market (endpoints in `market_fx` namespace) - see further sections to learn more about those 2 models and acting on Walutomat market via API. 
+    </aside>
+
+    Congratulations! You have performed your first currency exchange with Walutomat API.
+
+    ### Next steps
+
+    Now that you have performed your first currency exchange, you can learn more about the rest of the API.
+
+    #### Learn about direct vs market exchange
+
+    Currency One offers two types of currency exchange. Learn about the [difference](#Currency-exchange-models) and pick the right one for your system/business. 
+
+    #### Submit new currency exchange order to Walutomat market
+
+    Now that you have performed your first direct currency exchange with Currency One, you can try the market model of currency exchange by submitting new [exchange order](#orders) to Walutomat market. In this scenario Currency One is only platform operator and orders are executed if/when matching opposite order is available on the market.
+
+    #### Order payout from Walutomat multicurrency wallet
+
+    After currency exchange you may want to payout exchanged currency from Walutomat multicurrency wallet to your bank account or transfer it to third party. This operation can be requested via API as well and you use [payout](#payout) endpoint to achieve this.
+
+    ## Currency exchange models
+
+    The Walutomat API offers two different currency exchange types: direct and market.
+    A direct exchange is standard currency exchange with Currency One and requires to accept exchange rate offered by Currency One. The exchange rate is valid 5 minutes from its publication (publication timestamp is stored in `ts` attribute). 
+    A market exchange uses Walutomat market, where all participants may submit their currency exchange offers (bids and asks). Walutomat API provides endpoints to act on this market, by learning current best offers available on the market, submitting new exchange order with limit price to Walutomat market, checking order execution (whether and how much of the offered currency were exchanged so far), withdrawing own offers from the market.
+    To distinguish API endpoints related to different  currency exchange models, endpoints dedicated to direct exchange with Currency one are located in `direct_fx/` namespace while endpoints dedicated to P2P currency exchange on Walutomat market are located in `market_fx/` namespace.
+
+    ### Which type of exchange do I need?
+
+    It depends upon your business model ad your system requirements. Note that in direct exchange model, exchange rate is known a priori and could be freezed up to five minutes while in market exchange situation on the market changes dynamically. On the other hand, API to Walutomat market allows to design and automate different trading strategies that may perform well and significantly outrank results that would be achieved in direct exchange scenario.
+
+    ## Backwards compatibility
+
+    The following changes are considered backwards compatible:
+    * Adding new API endpoints
+    * Adding new properties to the responses from existing API endpoints
+    * Adding optional request parameters to existing API endpoints
+    * Altering the format or length of IDs
+    * Altering the message attributes returned by validation failures or other errors
+    * Reordering properties returned from existing API endpoints
+
+    ## Changelog
+
+    Release date | Description
+    ------------ | -----------
+    2018-XX-XX | Added endpoints to history of operations on multicurrency wallet (payins, payouts, currency exchanges)
+    2018-XX-XX | Release API version 2.0.0
+        
+    Documentation for earlier versions - see [v1 alpha](https://api.walutomat.pl/p24/) and [v1 beta](https://api.walutomat.pl/) 
+
+    # Usage
+
+    ## Authentication
+
+    The API uses token-based authentication. You will be provided with a API key which must be included in the header of all requests made to the API that requires authentication.
+    Additionally payout requests must be signed with RSA key with key size of 4096 bits.
+    All API requests must be made over HTTPS. Any requests made over HTTP will fail.
+
+    ## Errors
+
+    Responses contain `success` flag and `error` object.
+    If `success` attribute contains `false`, `error` object is not empty and shall be examined to learn error reason and details.
+
+    ### Error object
+
+    > Error object example:
+    ```json
+     {
+        "success": true,
+        "errors": [
+          {
+            "key": "INSUFFICIENT_FUNDS",
+            "description": "Requested payout exceeds current wallet balance {walletBalance}",
+            "trace": "",
+            "errorData": [
+              {
+                "key": "walletBalance",
+                "value": "3.14 EUR"
+              }
+            ]
+          }
+        ]
+     }   
+
+    ```
+
+    Error object always contains error `key` and error `description` in English. May contain key-value structure `errorData` with additional values that may be referred to in `description`. Error object may contain `trace` information. When unspecified error occurred, the trace can help to track the problem. You may be asked to deliver received response with trace content to our support team.
+
+    ## Pagination
+
+    [when get history with pagination is ready, pagination info will go here]
+
+    ## Duplicates
+
+    You can safely repeat submitting requests, especially when you are unsure whether previous attempt reaches Walutomat or you did not manage to process Walutomat API response.
+
+    <aside class="warning">
+    **Note!** When repeating request make sure to provide same request id (`submitId`)!
+    </aside>
+
+    When Walutomat API receives request with same `submitId` parameter value again, it will not perform requested operation one more time, but simply repeats last response, this time with `duplicate` attribute set to `true`.
+
+    ## Testing
+
+    All requests that may incur charges or otherwise may affect multicurrency wallet balance (like currency exchange, payout) are equipped with `dryRun` parameter. When set to `true` dry run mode is on. In this mode request is just validated but not executed.
+
+    ### Why use a `dryRun` flag?
+
+    The key difference, for dryRun requests:
+    * requests does not affect affect money, no operation on multicurrency wallet is performed, no charges are incurred
+    * still, requests correctness is validated, possibility to perform request operation is verified and additional information is returned (e.g. the cost tested operation may incur)
+
+    The main reasons for using dry run are therefore to:
+    * Verify your system have network connectivity with the Walutomat API
+    * Verify you are posting all the required data in the right format to the Walutomat API
+    * Verify you are handling the Walutomat API responses correctly
+
+    but also to:
+    * Verify whether requested operation can be performed (e.g. indicated currencies are supported or IBAN account number is valid)
+    * Learn the cost of the operation if it would be requested not in dry run mode (i.e. you can use it to determine payout cost)
+
+
+
+  
 externalDocs:
   description: Find out more about Valuto
   url: http://walutomat.pl/en
