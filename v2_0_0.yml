@@ -35,6 +35,7 @@ info:
 
     <aside class="notice">
     **Note:** You can skip this step if you do not intend to order payouts via API - other API requests authentication and authorization relies on API key only. 
+
     </aside>
 
     1. Generate a pair of RSA keys with key size of 4096 bits, here is example with use of ssh-keygen tool:
@@ -50,6 +51,7 @@ info:
     ```
 
     > Example response:
+    
     ```json
      {
         "success": true,
@@ -72,6 +74,7 @@ info:
     ```
 
     > Example response:
+    
     ```json
       {
         "success": true,
@@ -156,6 +159,7 @@ info:
     ### Error object
 
     > Error object example:
+    
     ```json
      {
         "success": true,
@@ -180,7 +184,7 @@ info:
 
     ## Pagination
 
-    [when get history with pagination is ready, pagination info will go here]
+    
 
     ## Duplicates
 
@@ -215,7 +219,7 @@ info:
 
   
 externalDocs:
-  description: Find out more about Valuto
+  description: Find out more about Walutomat
   url: http://walutomat.pl/en
 
 
@@ -244,7 +248,9 @@ tags:
   x-displayName: Account information
 
 - name: payout
-  description: Payout from wallet
+  description: |
+    Payout from wallet
+ 
   x-displayName: Payouts
 
 - name: direct_fx
@@ -272,6 +278,21 @@ paths:
           description: Returns wallet balances (if success set to false, examine errors object)
           schema:
             $ref: '#/definitions/BalanceResponse'
+          examples:
+            application/json:
+              {
+                "success": true,
+                "errors": [
+                ],
+                "result": [
+                  {
+                    "currency": "EUR",
+                    "balanceTotal": "123.00",
+                    "balanceAvailable": "99.00",
+                    "balanceReserved": "24.00"
+                  }
+                ]
+              }                          
       security:
       - api_key: []
 
@@ -333,6 +354,7 @@ paths:
           description: Returns list of operations on Walutomat multicurrency account according to selected filters. When no filters seelcted all operations from last 30 days are taken into account.
           schema:
             $ref: '#/definitions/HistoryResponse'
+            
       security:
       - api_key: []
 
@@ -363,6 +385,19 @@ paths:
           description: Returns current exchange rate (if success set to false, examine errors object)
           schema:
             $ref: '#/definitions/FxRateResponse'
+          examples:
+            application/json:
+              {
+                "success": true,
+                "errors": [
+                ],
+                "result": {
+                  "ts": "2018-03-27T09:58:06.945Z",
+                  "currencyPair": "EUR/PLN",
+                  "buyRate": "4.1234",
+                  "sellRate": "4.0987"
+                }
+              }                         
 
   /market_fx/best_offers:
     get:
@@ -385,7 +420,31 @@ paths:
           description: Returns best offers available on market (10 bids and asks), if success set to false, examine errors object
           schema:
             $ref: '#/definitions/BestOffersResponse'
-
+          examples:
+            application/json:
+              {
+                "success": true,
+                "errors": [
+                ],
+                "result": {
+                  "ts": "2018-03-27T09:58:06.945Z",
+                  "currencyPair": "EUR/PLN",
+                  "bids": [
+                    {
+                      "price": 4.3518,
+                      "volume": 962.65,
+                      "valueInOppositeCurrency": 4189.27
+                    }
+                  ],
+                  "asks": [
+                    {
+                      "price": 4.3518,
+                      "volume": 962.65,
+                      "valueInOppositeCurrency": 4189.27
+                    }
+                  ]
+                }
+              }
   /market_fx/orders:
     get:
       tags:
